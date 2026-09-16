@@ -1,7 +1,3 @@
---[[
-	modded version of linoria by visnoukkk
-]]
-
 local cloneref = (cloneref or clonereference or function(instance: any)
 	return instance
 end)
@@ -234,20 +230,20 @@ local Library = {
     RegistryMap = {};
     HudRegistry = {};
 
-    -- colors and font -- (Liquid Glass theme)
-    FontColor = Color3.fromRGB(245, 245, 255);
-    MainColor = Color3.fromRGB(18, 18, 28);
-    BackgroundColor = Color3.fromRGB(12, 12, 20);
+    -- colors and font --
+    FontColor = Color3.fromRGB(240, 240, 255);
+    MainColor = Color3.fromRGB(18, 16, 28); -- deep glass dark purple-ish
+    BackgroundColor = Color3.fromRGB(12, 10, 20);
 
-    AccentColor = Color3.fromRGB(160, 40, 255); -- vibrant purple
-    DisabledAccentColor = Color3.fromRGB(100, 90, 120);
+    AccentColor = Color3.fromRGB(168, 85, 247); -- purple accent
+    DisabledAccentColor = Color3.fromRGB(100, 80, 120);
 
     OutlineColor = Color3.fromRGB(80, 60, 120);
     DisabledOutlineColor = Color3.fromRGB(60, 50, 80);
 
     DisabledTextColor = Color3.fromRGB(140, 130, 160);
 
-    RiskColor = Color3.fromRGB(255, 60, 80);
+    RiskColor = Color3.fromRGB(255, 50, 50);
 
     Black = Color3.new(0, 0, 0);
     Font = Enum.Font.GothamMedium,
@@ -1104,15 +1100,17 @@ function Library:Unload()
     end
 
     Library.Unloaded = true
-    -- Clean up liquid glass blur
+    ScreenGui:Destroy()
+
+    -- Cleanup liquid glass blur
     pcall(function()
         local blur = game:GetService("Lighting"):FindFirstChild("LiquidGlassBlur")
         if blur then blur:Destroy() end
     end)
-    ScreenGui:Destroy()
 
     getgenv().Linoria = nil
 end
+
 
 function Library:OnUnload(Callback)
     table.insert(Library.UnloadSignals, Callback)
@@ -6567,10 +6565,28 @@ function Library:CreateWindow(...)
         Title = WindowInfo.Title;
     }
 
+    -- Liquid Glass Background Overlay (darken + blur when menu opens)
+    local BackgroundOverlay = Library:Create("Frame", {
+        BackgroundColor3 = Color3.new(0, 0, 0);
+        BackgroundTransparency = 1;
+        BorderSizePixel = 0;
+        Size = UDim2.fromScale(1, 1);
+        Position = UDim2.fromScale(0, 0);
+        ZIndex = 0;
+        Visible = false;
+        Parent = ScreenGui;
+        Name = "LiquidGlassOverlay";
+    })
+
+    local BlurEffectInstance = Instance.new("BlurEffect")
+    BlurEffectInstance.Name = "LiquidGlassBlur"
+    BlurEffectInstance.Size = 0
+    BlurEffectInstance.Parent = game:GetService("Lighting")
+
     local Outer = Library:Create("Frame", {
         AnchorPoint = WindowInfo.AnchorPoint;
-        BackgroundColor3 = Color3.fromRGB(10, 8, 18);
-        BackgroundTransparency = 0.15; -- liquid glass translucency
+        BackgroundColor3 = Color3.fromRGB(25, 20, 40);
+        BackgroundTransparency = 0.25; -- glass transparency
         BorderSizePixel = 0;
         Position = WindowInfo.Position;
         Size = WindowInfo.Size;
@@ -6579,105 +6595,124 @@ function Library:CreateWindow(...)
         Parent = ScreenGui;
         Name = "Window";
     })
-    Library:Create("UICorner", {
-        CornerRadius = UDim.new(0, 14);
-        Parent = Outer;
-    })
-    Library:Create("UIStroke", {
-        Color = Library.AccentColor;
-        Thickness = 1.5;
-        Transparency = 0.35;
-        Parent = Outer;
-    })
     LibraryMainOuterFrame = Outer
     Library:MakeDraggable(Outer, 25, true)
     if WindowInfo.Resizable then Library:MakeResizable(Outer, Library.MinSize) end
 
+    -- Liquid glass corners + soft stroke
+    local OuterCorner = Library:Create("UICorner", {
+        CornerRadius = UDim.new(0, 12);
+        Parent = Outer;
+    })
+    local OuterStroke = Library:Create("UIStroke", {
+        Color = Library.AccentColor;
+        Thickness = 1.5;
+        Transparency = 0.4;
+        Parent = Outer;
+    })
+    Library:AddToRegistry(OuterStroke, {
+        Color = "AccentColor";
+    })
+
     local Inner = Library:Create("Frame", {
         BackgroundColor3 = Library.MainColor;
-        BackgroundTransparency = 0.25; -- frosted glass feel
+        BackgroundTransparency = 0.35; -- frosted glass feel
+        BorderColor3 = Library.AccentColor;
+        BorderMode = Enum.BorderMode.Inset;
         BorderSizePixel = 0;
-        Position = UDim2.new(0, 2, 0, 2);
-        Size = UDim2.new(1, -4, 1, -4);
+        Position = UDim2.new(0, 1, 0, 1);
+        Size = UDim2.new(1, -2, 1, -2);
         ZIndex = 1;
         Parent = Outer;
     })
-    Library:Create("UICorner", {
-        CornerRadius = UDim.new(0, 12);
-        Parent = Inner;
-    })
-    Library:Create("UIStroke", {
-        Color = Color3.fromRGB(180, 100, 255);
-        Thickness = 1;
-        Transparency = 0.55;
+
+    local InnerCorner = Library:Create("UICorner", {
+        CornerRadius = UDim.new(0, 11);
         Parent = Inner;
     })
 
     Library:AddToRegistry(Inner, {
         BackgroundColor3 = "MainColor";
+        BorderColor3 = "AccentColor";
+    })
+
+    -- Subtle glass gradient overlay
+    local GlassGradient = Library:Create("UIGradient", {
+        Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 255, 255)),
+            ColorSequenceKeypoint.new(0.5, Color3.fromRGB(200, 180, 255)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(100, 80, 160))
+        });
+        Rotation = 90;
+        Transparency = NumberSequence.new({
+            NumberSequenceKeypoint.new(0, 0.85),
+            NumberSequenceKeypoint.new(0.5, 0.9),
+            NumberSequenceKeypoint.new(1, 0.7)
+        });
+        Parent = Inner;
     })
 
     local WindowLabel = Library:CreateLabel({
         Position = UDim2.new(0, 0, 0, 0);
-        Size = UDim2.new(1, 0, 0, 25);
+        Size = UDim2.new(1, 0, 0, 28);
         Text = WindowInfo.Title or "";
-        TextXAlignment = Enum.TextXAlignment.Center;
-        TextYAlignment = Enum.TextYAlignment.Center;
-        ZIndex = 1;
+        TextXAlignment = Enum.TextXAlignment.Center; -- CENTERED TITLE
+        TextSize = 16;
+        ZIndex = 2;
         Parent = Inner;
     })
 
-    -- Animated purple <-> black title color (liquid glass style)
-    do
-        local TitleAnimConn
-        local HuePhase = 0
-        TitleAnimConn = RunService.RenderStepped:Connect(function(dt)
-            if Library.Unloaded or not WindowLabel or not WindowLabel.Parent then
-                if TitleAnimConn then TitleAnimConn:Disconnect() end
-                return
-            end
-            HuePhase = (HuePhase + dt * 0.6) % 1
-            -- Smoothly lerp between deep purple and near-black
-            local t = (math.sin(HuePhase * math.pi * 2) + 1) / 2
-            local Purple = Color3.fromRGB(180, 50, 255)
-            local Dark = Color3.fromRGB(20, 5, 35)
-            WindowLabel.TextColor3 = Purple:Lerp(Dark, t)
-        end)
-        Library:GiveSignal(TitleAnimConn)
-    end
+    -- Animated purple <-> black title color
+    task.spawn(function()
+        local t = 0
+        while Outer and Outer.Parent and not Library.Unloaded do
+            t = t + 0.025
+            local wave = (math.sin(t) + 1) / 2 -- 0 to 1
+            -- interpolate purple (168,85,247) <-> near black (20,5,40)
+            local r = 20 + (168 - 20) * wave
+            local g = 5 + (85 - 5) * wave
+            local b = 40 + (247 - 40) * wave
+            WindowLabel.TextColor3 = Color3.fromRGB(r, g, b)
+            task.wait(0.03)
+        end
+    end)
 
     local MainSectionOuter = Library:Create("Frame", {
         BackgroundColor3 = Library.BackgroundColor;
-        BackgroundTransparency = 0.35;
+        BackgroundTransparency = 0.4;
+        BorderColor3 = Library.OutlineColor;
         BorderSizePixel = 0;
-        Position = UDim2.new(0, 8, 0, 25);
-        Size = UDim2.new(1, -16, 1, -33);
+        Position = UDim2.new(0, 8, 0, 32);
+        Size = UDim2.new(1, -16, 1, -40);
         ZIndex = 1;
         Parent = Inner;
     })
-    Library:Create("UICorner", {
-        CornerRadius = UDim.new(0, 10);
-        Parent = MainSectionOuter;
-    })
-    Library:Create("UIStroke", {
-        Color = Library.OutlineColor;
-        Thickness = 1;
-        Transparency = 0.4;
+
+    local MainSectionCorner = Library:Create("UICorner", {
+        CornerRadius = UDim.new(0, 8);
         Parent = MainSectionOuter;
     })
 
     Library:AddToRegistry(MainSectionOuter, {
         BackgroundColor3 = "BackgroundColor";
+        BorderColor3 = "OutlineColor";
     })
 
     local MainSectionInner = Library:Create("Frame", {
         BackgroundColor3 = Library.BackgroundColor;
+        BackgroundTransparency = 0.5;
         BorderColor3 = Color3.new(0, 0, 0);
         BorderMode = Enum.BorderMode.Inset;
+        BorderSizePixel = 0;
         Position = UDim2.new(0, 0, 0, 0);
         Size = UDim2.new(1, 0, 1, 0);
         ZIndex = 1;
         Parent = MainSectionOuter;
+    })
+
+    local MainSectionInnerCorner = Library:Create("UICorner", {
+        CornerRadius = UDim.new(0, 8);
+        Parent = MainSectionInner;
     })
 
     Library:AddToRegistry(MainSectionInner, {
@@ -7951,22 +7986,7 @@ end
     local TransparencyCache = {}
     local Toggled = false
     local Fading = false
-
-    -- Liquid Glass: full-screen darken + blur overlay (instant)
-    local Backdrop = Library:Create("Frame", {
-        BackgroundColor3 = Color3.new(0, 0, 0);
-        BackgroundTransparency = 1;
-        Size = UDim2.fromScale(1, 1);
-        ZIndex = 0;
-        Visible = false;
-        Parent = ScreenGui;
-        Name = "LiquidGlassBackdrop";
-    })
-    local BackdropBlur = Instance.new("BlurEffect")
-    BackdropBlur.Size = 0
-    BackdropBlur.Name = "LiquidGlassBlur"
-    BackdropBlur.Parent = game:GetService("Lighting")
-
+    
     function Window:Toggle(Toggling)
         if typeof(Toggling) == "boolean" and Toggling == Toggled then return end
         if Fading then return end
@@ -7980,11 +8000,18 @@ end
             ModalElement.Modal = Library.Toggled
         end
 
+        -- Instant liquid glass background darken + blur
         if Toggled then
-            -- Instant darken + blur when menu opens
-            Backdrop.Visible = true
-            Backdrop.BackgroundTransparency = 0.45
-            BackdropBlur.Size = 18
+            BackgroundOverlay.Visible = true
+            BackgroundOverlay.BackgroundTransparency = 0.45 -- instant darken
+            BlurEffectInstance.Size = 24 -- instant blur
+        else
+            BackgroundOverlay.BackgroundTransparency = 1
+            BackgroundOverlay.Visible = false
+            BlurEffectInstance.Size = 0
+        end
+
+        if Toggled then
             -- A bit scuffed, but if we're going from not toggled -> toggled we want to show the frame immediately so that the fade is visible.
             Outer.Visible = true
 
@@ -8083,12 +8110,6 @@ end
 
         task.wait(FadeTime)
         Outer.Visible = Toggled
-        if not Toggled then
-            -- Instantly remove darken + blur when closing
-            Backdrop.Visible = false
-            Backdrop.BackgroundTransparency = 1
-            BackdropBlur.Size = 0
-        end
         Fading = false
     end
 
